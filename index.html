@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sequence - Your AI Pair Programmer for Algorithms</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Orb Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.4/gsap.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0A0A; /* Darker background */
+            color: #c9d1d9; 
+            /* Grid background */
+            background-image:
+                linear-gradient(rgba(48, 54, 61, 0.2) 1px, transparent 1px),
+                linear-gradient(to right, rgba(48, 54, 61, 0.2) 1px, transparent 1px);
+            background-size: 36px 36px;
+        }
+        .font-mono {
+            font-family: 'Roboto Mono', monospace;
+        }
+        .glass-effect {
+            background: rgba(10, 10, 10, 0.7); /* Darker glass effect */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(48, 54, 61, 0.8);
+        }
+        .hero-gradient {
+            background: radial-gradient(ellipse 50% 50% at 50% -20%, rgba(56, 139, 253, 0.1), #0A0A0A 70%); /* Darker gradient */
+        }
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1);
+        }
+        .pricing-card {
+            border: 1px solid #30363d;
+            background-color: #0A0A0A; /* Darker card */
+            transition: all 0.3s ease;
+        }
+        .pricing-card-premium {
+            border-color: #388bfd;
+            box-shadow: 0 0 30px rgba(56, 139, 253, 0.2);
+        }
+         .pricing-card-pro {
+            border-color: #8b949e;
+        }
+        .btn-download {
+            display: block;
+            width: 100%;
+            text-align: center;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background-color: #21262d;
+            transition: all 0.2s ease;
+        }
+        .btn-download:hover {
+            background-color: #30363d;
+            border-color: #8b949e;
+        }
+
+        /* AI Orb Styles */
+        .ai-orb-container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            position: relative;
+            height: auto; /* Allow height to adjust */
+            min-height: 360px; /* Minimum height for orb */
+            transition: filter 0.5s, opacity 0.5s;
+        }
+        .ai-orb-container.paused {
+            filter: grayscale(1);
+            opacity: 0.5;
+        }
+        #ai-orb { 
+            width: 360px; /* Increased size for HD */
+            height: 360px; /* Increased size for HD */
+            position: relative; 
+            margin: 0 auto;
+        }
+        #ai-caption { 
+            text-align: center; 
+            font-weight: 600; 
+            min-height: 4.5rem; /* Taller for multi-line captions */
+            color: #c9d1d9;
+            margin-top: 1.5rem;
+            display: flex;
+            flex-direction: column; /* Ensure lines stack vertically */
+            align-items: center; /* Center lines horizontally */
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        /* Demo Prompt Styles */
+        #demo-prompt-container {
+            min-height: 2.5rem;
+            margin-top: 1rem;
+            margin-bottom: 2rem;
+        }
+        #demo-prompt {
+            color: #ffffff;
+            text-align: center;
+        }
+        .typing-cursor {
+            display: inline-block;
+            width: 8px;
+            height: 1.5rem; /* Adjusted cursor size */
+            background-color: #ffffff;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Advanced Caption Styles */
+        .caption-word {
+            display: inline;
+            transition: all 0.15s ease-in-out;
+            margin-right: 0.2rem;
+            border-radius: 3px;
+            padding: 0 1px;
+        }
+        .caption-word.current {
+            background: rgba(74, 144, 226, 0.5);
+            border-radius: 4px;
+            padding: 1px 4px;
+            box-shadow: 0 0 8px rgba(74, 144, 226, 0.3);
+            font-weight: 500;
+            transform: scale(1.02);
+            color: #fff;
+            opacity: 1;
+        }
+        .caption-word.completed {
+            opacity: 0.6;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .caption-word.upcoming {
+            opacity: 0.5;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .caption-line {
+            margin-bottom: 0.3rem;
+            line-height: 1.4;
+            font-size: 1.1rem;
+            text-align: center; /* Centered captions */
+            width: 100%;
+        }
+        .caption-line.current-line {
+            opacity: 1;
+        }
+        .caption-line.next-line {
+            opacity: 0.6;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header -->
+    <header class="fixed w-full z-30 top-0 glass-effect">
+        <div class="max-w-7xl mx-auto px-5 sm:px-6">
+            <div class="flex items-center justify-between h-16 md:h-20">
+                <!-- Site branding -->
+                <div class="flex-shrink-0 mr-4">
+                    <a href="#" class="flex items-center">
+                         <svg class="h-8" viewBox="0 0 160 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" style="stop-color:#d4e6ff;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#388BFD;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+                            <text x="0" y="19" font-family="'Inter', sans-serif" font-size="24" font-weight="bold" fill="url(#logoGradient)">Sequence</text>
+                        </svg>
+                    </a>
+                </div>
+
+                <!-- Site navigation -->
+                <nav class="hidden md:flex md:grow">
+                    <ul class="flex grow justify-end flex-wrap items-center">
+                        <li><a href="#features" class="text-gray-300 hover:text-white px-4 py-2 flex items-center transition duration-150 ease-in-out">Features</a></li>
+                        <li><a href="#setup" class="text-gray-300 hover:text-white px-4 py-2 flex items-center transition duration-150 ease-in-out">Setup</a></li>
+                        <li><a href="#pricing" class="text-gray-300 hover:text-white px-4 py-2 flex items-center transition duration-150 ease-in-out">Pricing</a></li>
+                        <li><a href="#faq" class="text-gray-300 hover:text-white px-4 py-2 flex items-center transition duration-150 ease-in-out">FAQ</a></li>
+                    </ul>
+                </nav>
+                 <div class="flex items-center">
+                     <a href="#" class="hidden sm:inline-block text-gray-300 hover:text-white px-4 py-2 flex items-center transition duration-150 ease-in-out">Log in</a>
+                    <a href="#pricing" class="btn text-white bg-blue-600 hover:bg-blue-700 ml-3 rounded-md px-4 py-2 transition duration-300 ease-in-out">Get Started</a>
+                 </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="grow">
+
+        <!-- Hero section -->
+        <section class="relative hero-gradient pt-32 pb-20 md:pt-40 md:pb-32">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6">
+                <div class="text-center">
+                    <h1 class="text-4xl md:text-6xl font-extrabold leading-tighter tracking-tighter mb-6">
+                        Talk your way through algorithms.
+                    </h1>
+                    <div class="max-w-3xl mx-auto">
+                        <p class="text-lg md:text-xl text-gray-400 mb-10">
+                           Sequence is a specialized, voice-first AI Partner that remembers your coding journey and delivers a learning experience based on your individual preferences.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- AI Orb -->
+                <div class="ai-orb-container" id="ai-orb-container">
+                    <div id="ai-orb"></div>
+                    <!-- AI Captions and User Prompt -->
+                    <div id="ai-caption">
+                        <div id="ai-caption-text"></div>
+                    </div>
+                    <div id="ai-caption-text"></div>
+                </div>
+                <div id="demo-prompt-container">
+                    <p id="demo-prompt" class="text-2xl font-extrabold tracking-tight"></p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section id="features" class="py-20">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6">
+                <div class="text-center mb-12">
+                     <h2 class="text-3xl md:text-4xl font-extrabold">A Smarter Way to Prepare</h2>
+                     <p class="text-lg text-gray-400 mt-4">Sequence is more than a problem bank. It's a complete learning system.</p>
+                </div>
+                <div class="grid gap-12 md:grid-cols-3">
+                    <div class="feature-card text-center">
+                         <div class="feature-icon flex items-center justify-center h-16 w-16 mx-auto mb-4 transition-transform duration-300">
+                            <svg class="w-12 h-12 text-blue-400" viewBox="0 0 28 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M23 2H5C2.79086 2 1 3.79086 1 6C1 8.20914 2.79086 10 5 10H23C25.2091 10 27 8.20914 27 6C27 3.79086 25.2091 2 23 2Z" stroke="#484F58" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="9.5" y1="2" x2="9.5" y2="10" stroke="#484F58" stroke-width="2" stroke-linecap="round"/>
+                                <line x1="18.5" y1="2" x2="18.5" y2="10" stroke="#484F58" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M9.5 10H5C2.79086 10 1 8.20914 1 6C1 3.79086 2.79086 2 5 2H9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Complete Pattern Mastery</h3>
+                        <p class="text-gray-400">Master all 14 essential LeetCode patterns with a structured curriculum, visual progress dashboards, and detailed session analytics to track your growth.</p>
+                    </div>
+                    <div class="feature-card text-center">
+                         <div class="feature-icon flex items-center justify-center h-16 w-16 mx-auto mb-4 transition-transform duration-300">
+                             <svg class="w-12 h-12 text-blue-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">State-of-the-Art LLM Assistant</h3>
+                        <p class="text-gray-400">Leverage a powerful LLM for contextual hints, code explanations, and debugging, all powered by an adaptive memory of your past sessions.</p>
+                    </div>
+                     <div class="feature-card text-center">
+                         <div class="feature-icon flex items-center justify-center h-16 w-16 mx-auto mb-4 transition-transform duration-300">
+                           <svg class="w-12 h-12 text-blue-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 10V14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M8 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M12 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M16 7V17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M20 10V14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2">Conversational AI Coach</h3>
+                        <p class="text-gray-400">Interact by talking in multiple languages. Enable your mic to ask questions, get hints, and even have the AI walk you through the VS Code extension setup, step-by-step.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Setup Section -->
+        <section id="setup" class="py-20 bg-[#111111]/50">
+            <div class="max-w-6xl mx-auto px-4 sm:px-6">
+                <div class="text-center mb-12">
+                     <h2 class="text-3xl md:text-4xl font-extrabold">Set Up in 3 Easy Steps</h2>
+                     <p class="text-lg text-gray-400 mt-4">Integrate Sequence directly into your editor to start preparing smarter, not just harder.</p>
+                </div>
+                <div class="max-w-3xl mx-auto">
+                    <div class="space-y-12">
+                        <!-- Step 1 -->
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center justify-center h-12 w-12 rounded-full bg-blue-600 text-white font-bold text-xl">1</div>
+                            </div>
+                            <div class="ml-6">
+                                <h3 class="text-2xl font-bold mb-2">Install the Extension</h3>
+                                <p class="text-gray-400 mb-6">Get the Sequence extension from the Visual Studio Code marketplace. It's built exclusively for VS Code to ensure a seamless experience.</p>
+                                <div class="space-y-2">
+                                    <a href="#" class="btn-download">Download for Visual Studio Code</a>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-4">Available on macOS and Linux. Windows support is experimental (WSL recommended).</p>
+                            </div>
+                        </div>
+                        <!-- Step 2 -->
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center justify-center h-12 w-12 rounded-full bg-blue-600 text-white font-bold text-xl">2</div>
+                            </div>
+                            <div class="ml-6">
+                                <h3 class="text-2xl font-bold mb-2">Sign In & Talk to the AI</h3>
+                                <p class="text-gray-400">Once installed, open the Sequence sidebar and sign in. Stuck? Just ask! Our AI can guide you through the setup process with voice commands.</p>
+                            </div>
+                        </div>
+                        <!-- Step 3 -->
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center justify-center h-12 w-12 rounded-full bg-blue-600 text-white font-bold text-xl">3</div>
+                            </div>
+                             <div class="ml-6">
+                                <h3 class="text-2xl font-bold mb-2">Configure Your AI Agent</h3>
+                                <ul class="space-y-4 text-gray-300 mt-4">
+                                    <li class="flex items-start">
+                                        <svg class="w-6 h-6 text-blue-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                        <span><strong>Pair with Sequence:</strong> Use the chat to get hints, edit code, and understand complex logic seamlessly. Reference files with @filename.</span>
+                                    </li>
+                                     <li class="flex items-start">
+                                        <svg class="w-6 h-6 text-blue-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V3m0 18v-3m6-7h3m-18 0h3"></path></svg>
+                                        <span><strong>Control the AI:</strong> Switch between a simple 'Chat' mode for questions and a powerful 'Agent' mode that can read files and suggest edits automatically.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing -->
+        <section id="pricing" class="py-20 bg-[#111111]/50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-extrabold">Choose Your Plan</h2>
+                    <p class="text-lg text-gray-400 mt-4">Start for free, then upgrade for the full AI-powered experience.</p>
+                </div>
+                <div class="max-w-4xl mx-auto">
+                    <div class="grid md:grid-cols-2 overflow-hidden rounded-3xl border border-[#30363d]">
+                        <!-- Free Plan Side -->
+                        <div class="p-8 bg-gradient-to-br from-[#0D0D0D] to-[#151515]">
+                             <h3 class="text-2xl font-bold mb-2">Free</h3>
+                            <p class="text-gray-400 mb-6 min-h-[48px]">The complete pattern mastery toolkit with a generous monthly AI allowance.</p>
+                            <div class="flex items-baseline mb-6"><span class="text-4xl font-extrabold">$0</span><span class="ml-2 text-xl font-medium text-gray-400">USD</span></div>
+                            <p class="text-left font-semibold text-white mb-3">What's included:</p>
+                            <ul class="text-left space-y-3 mb-8 min-h-[220px]">
+                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Access to all 14 patterns</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>238 LeetCode questions with custom tests</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>20 LLM interactions per month</span></li>
+                                <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>TTS and STT capabilities</span></li>
+                                 <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Adaptive Memory for context</span></li>
+                                 <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>AI Agent with file read/write</span></li>
+                            </ul>
+                            <a href="#" class="w-full block text-center bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-md">Start for Free</a>
+                        </div>
+                        <!-- Pro Plan Side -->
+                        <div class="p-8 bg-gradient-to-br from-[#1F1F1F] to-[#191919]">
+                            <h3 class="text-2xl font-bold mb-2">Pro</h3>
+                            <p class="text-blue-400 mb-6 min-h-[48px]">Unleash the full power of Sequence with unlimited AI.</p>
+                            <div class="flex items-baseline mb-6"><span class="text-4xl font-extrabold">$25</span><span class="ml-2 text-xl font-medium text-gray-400">USD / month</span></div>
+                            <p class="text-left font-semibold text-white mb-3">Everything in Free, plus:</p>
+                            <ul class="text-left space-y-3 mb-8 min-h-[220px]">
+                                 <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span><strong>Unlimited</strong> API calls per month</span></li>
+                                 <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Advanced AI reasoning</span></li>
+                                 <li class="flex items-start"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg><span>Increased memory size</span></li>
+                            </ul>
+                             <a href="#" class="w-full block text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md">Go Pro</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- FAQ -->
+        <section id="faq" class="py-20">
+            <div class="max-w-3xl mx-auto px-4 sm:px-6">
+                 <div class="text-center mb-12">
+                    <h2 class="text-3xl md:text-4xl font-extrabold">Frequently Asked Questions</h2>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-[#111111] border border-[#30363d] rounded-lg" x-data="{ open: false }">
+                        <button @click="open = !open" class="w-full flex justify-between items-center text-left text-lg font-semibold p-6">
+                            <span>Who is Sequence for?</span>
+                            <svg class="w-4 h-4 text-gray-400 transform transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        <div x-show="open" x-cloak class="px-6 pb-6 text-gray-400">
+                           <p>Sequence is designed for anyone preparing for software engineering technical interviews. If you're tired of aimlessly grinding LeetCode and want a structured, AI-enhanced learning path, Sequence is for you.</p>
+                        </div>
+                    </div>
+                    <div class="bg-[#111111] border border-[#30363d] rounded-lg" x-data="{ open: false }">
+                        <button @click="open = !open" class="w-full flex justify-between items-center text-left text-lg font-semibold p-6">
+                            <span>How does the AI assistant work?</span>
+                             <svg class="w-4 h-4 text-gray-400 transform transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                         <div x-show="open" x-cloak class="px-6 pb-6 text-gray-400">
+                           <p>Our assistant is powered by Google's Gemini model, providing intelligent, context-aware help in multiple languages. It uses an adaptive memory system to recall your past conversations and problem-solving history, offering personalized hints and explanations that guide you without giving away the answer.</p>
+                        </div>
+                    </div>
+                     <div class="bg-[#111111] border border-[#30363d] rounded-lg" x-data="{ open: false }">
+                        <button @click="open = !open" class="w-full flex justify-between items-center text-left text-lg font-semibold p-6">
+                            <span>Can I cancel my subscription?</span>
+                             <svg class="w-4 h-4 text-gray-400 transform transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                         <div x-show="open" x-cloak class="px-6 pb-6 text-gray-400">
+                           <p>Absolutely. You can cancel your subscription at any time from your account dashboard. You'll retain access until the end of your current billing period.</p>
+                        </div>
+                    </div>
+                    <div class="bg-[#111111] border border-[#30363d] rounded-lg" x-data="{ open: false }">
+                        <button @click="open = !open" class="w-full flex justify-between items-center text-left text-lg font-semibold p-6">
+                            <span>Do you use my data to train your AI models?</span>
+                             <svg class="w-4 h-4 text-gray-400 transform transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                         <div x-show="open" x-cloak class="px-6 pb-6 text-gray-400 space-y-2">
+                           <p>No. We do not use your private code, prompts, or suggestions from the Pro plan to train our models.</p>
+                        </div>
+                    </div>
+                     <div class="bg-[#111111] border border-[#30363d] rounded-lg" x-data="{ open: false }">
+                        <button @click="open = !open" class="w-full flex justify-between items-center text-left text-lg font-semibold p-6">
+                            <span>What personal data does Sequence process?</span>
+                             <svg class="w-4 h-4 text-gray-400 transform transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                         <div x-show="open" x-cloak class="px-6 pb-6 text-gray-400">
+                           <p>We process data required to provide and improve the service. This includes:</p>
+                           <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li><strong>User Engagement Data:</strong> Pseudonymous data on how you interact with Sequence (e.g., accepted suggestions, feature usage) to help us improve the product.</li>
+                                <li><strong>Prompts & Suggestions:</strong> Your inputs to the AI and its generated responses, which are necessary to provide conversational context. On the Pro plan, this data is not retained for model training.</li>
+                                <li><strong>Feedback Data:</strong> Any feedback you voluntarily provide through support tickets or in-app reactions.</li>
+                           </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-[#0A0A0A] border-t border-[#30363d] py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+            <div class="mb-4">
+                <a href="#" class="flex items-center justify-center">
+                     <svg class="h-8" viewBox="0 0 160 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="logoGradientFooter" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#d4e6ff;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#388BFD;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <text x="0" y="19" font-family="'Inter', sans-serif" font-size="24" font-weight="bold" fill="url(#logoGradientFooter)">Sequence</text>
+                    </svg>
+                </a>
+            </div>
+            <div class="text-sm text-gray-400 flex justify-center items-center space-x-4">
+                <span>&copy; 2025 Sequence. All rights reserved.</span>
+                <a href="#" class="hover:text-white transition-colors">Terms</a>
+                <a href="#" class="hover:text-white transition-colors">Privacy</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <!-- AI Orb Animation Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // --- AI ORB ANIMATION SYSTEM ---
+        let orbScene, orbCamera, orbRenderer, orbParticles, orbParticleMaterial;
+        let orbCurrentState = 'idle';
+        let orbTime = 0;
+        let isOrbInitialized = false;
+        let animationFrameId = null;
+
+        const orbConfig = {
+            particleCount: 15000, 
+            sphereRadius: 120,
+            states: {
+                idle: { label: "", colors: { highlight1: "#ffffff", highlight2: "#d4e6ff", base1: "#3366cc", base2: "#4488ff" }, secondaryColors: { highlight1: "#f0f0f0", highlight2: "#d4e6ff", base1: "#3366cc", base2: "#4488ff" } },
+                listening: { label: "Listening...", colors: { highlight1: "#ffffff", highlight2: "#66ccff", base1: "#0044aa", base2: "#0055dd" }, secondaryColors: { highlight1: "#ffffff", highlight2: "#66ccff", base1: "#66ccff", base2: "#5599ff" } },
+                thinking: { label: "Thinking...", colors: { highlight1: "#fff4e6", highlight2: "#ffcc44", base1: "#66aaff", base2: "#4488ff" }, secondaryColors: { highlight1: "#fff4e6", highlight2: "#ff8800", base1: "#77bbff", base2: "#5599ff" } },
+                talking: { label: " ", colors: { highlight1: "#ffff44", highlight2: "#44dd44", base1: "#66aaff", base2: "#4488ff" }, secondaryColors: { highlight1: "#ffff44", highlight2: "#ccdd44", base1: "#4488ff", base2: "#4488ff" } }
+            }
+        };
+
+        let orbPrimaryColors = { highlight1: new THREE.Color(orbConfig.states.idle.colors.highlight1), highlight2: new THREE.Color(orbConfig.states.idle.colors.highlight2), base1: new THREE.Color(orbConfig.states.idle.colors.base1), base2: new THREE.Color(orbConfig.states.idle.colors.base2) };
+        let orbSecondaryColors = { highlight1: new THREE.Color(orbConfig.states.idle.secondaryColors.highlight1), highlight2: new THREE.Color(orbConfig.states.idle.secondaryColors.highlight2), base1: new THREE.Color(orbConfig.states.idle.secondaryColors.base1), base2: new THREE.Color(orbConfig.states.idle.secondaryColors.base2) };
+        let orbBasePositions = new Float32Array(orbConfig.particleCount * 3);
+        let orbParticleCoords = [];
+
+        function initOrb() {
+            const container = document.getElementById('ai-orb');
+            if (!container || !window.THREE) return false;
+            orbScene = new THREE.Scene();
+            orbCamera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            orbCamera.position.z = 250;
+            orbRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            orbRenderer.setSize(container.clientWidth, container.clientHeight);
+            orbRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.innerHTML = '';
+            container.appendChild(orbRenderer.domElement);
+            createAdvancedParticleSystem();
+            return true;
+        }
+
+        function createAdvancedParticleSystem() {
+            const geometry = new THREE.BufferGeometry();
+            for (let i = 0; i < orbConfig.particleCount; i++) {
+                const i3 = i * 3;
+                const phi = Math.acos(-1 + (2 * i) / orbConfig.particleCount);
+                const theta = Math.sqrt(orbConfig.particleCount * Math.PI) * phi;
+                orbParticleCoords.push({ phi, theta });
+                orbBasePositions[i3] = orbConfig.sphereRadius * Math.cos(theta) * Math.sin(phi);
+                orbBasePositions[i3 + 1] = orbConfig.sphereRadius * Math.sin(theta) * Math.sin(phi);
+                orbBasePositions[i3 + 2] = orbConfig.sphereRadius * Math.cos(phi);
+            }
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(orbBasePositions), 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(orbConfig.particleCount * 3), 3));
+            orbParticleMaterial = new THREE.PointsMaterial({ size: 1.5, vertexColors: true, sizeAttenuation: true, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.95 });
+            orbParticles = new THREE.Points(geometry, orbParticleMaterial);
+            orbScene.add(orbParticles);
+        }
+
+        function animateAdvancedOrb() {
+            if (!orbRenderer || !orbScene || !orbCamera || !orbParticles) return;
+            orbTime += 0.01;
+            const positions = orbParticles.geometry.attributes.position.array;
+            const colors = orbParticles.geometry.attributes.color.array;
+            let syllableIntensity = (orbCurrentState === 'talking') ? 0.5 + Math.sin(orbTime * 10) * 0.3 : 0; // Slower animation
+            const highlightPos = new THREE.Vector3(-100, 80, 0);
+            const maxDist = 300;
+            orbParticles.rotation.y += 0.0005;
+            orbParticles.rotation.x += 0.0002;
+            orbParticles.updateMatrixWorld();
+            const worldMatrix = orbParticles.matrixWorld;
+            const pulseFactor = (Math.sin(orbTime * 2) + 1) / 2;
+            const h1 = orbPrimaryColors.highlight1.clone().lerp(orbSecondaryColors.highlight1, pulseFactor);
+            const h2 = orbPrimaryColors.highlight2.clone().lerp(orbSecondaryColors.highlight2, pulseFactor);
+            const b1 = orbPrimaryColors.base1.clone().lerp(orbSecondaryColors.base1, pulseFactor);
+            const b2 = orbPrimaryColors.base2.clone().lerp(orbSecondaryColors.base2, pulseFactor);
+            const framePalette = [h1, h2, b1, b2];
+            for (let i = 0; i < orbConfig.particleCount; i++) {
+                const i3 = i * 3;
+                const { phi, theta } = orbParticleCoords[i];
+                let displacement = 1.0 + (Math.sin(phi * 6 + orbTime * 2) * Math.sin(theta * 6 + orbTime * 2)) * (orbCurrentState === 'talking' ? (0.09 + syllableIntensity * 0.08) : 0.1);
+                const localPos = new THREE.Vector3(orbBasePositions[i3] * displacement, orbBasePositions[i3 + 1] * displacement, orbBasePositions[i3 + 2] * displacement);
+                positions[i3] = localPos.x; positions[i3 + 1] = localPos.y; positions[i3 + 2] = localPos.z;
+                const worldPos = localPos.clone().applyMatrix4(worldMatrix);
+                const dist = worldPos.distanceTo(highlightPos);
+                const gradientValue = Math.min(1, dist / maxDist);
+                const segmentIndex = Math.min(Math.floor(gradientValue * (framePalette.length - 1)), framePalette.length - 2);
+                const color1 = framePalette[segmentIndex]; const color2 = framePalette[segmentIndex + 1];
+                const localBlendFactor = (gradientValue - (segmentIndex / (framePalette.length - 1))) * (framePalette.length - 1);
+                const finalColor = new THREE.Color().copy(color1).lerp(color2, localBlendFactor);
+                finalColor.multiplyScalar(1.3);
+                colors[i3] = finalColor.r; colors[i3 + 1] = finalColor.g; colors[i3 + 2] = finalColor.b;
+            }
+            orbParticles.geometry.attributes.position.needsUpdate = true;
+            orbParticles.geometry.attributes.color.needsUpdate = true;
+            orbRenderer.render(orbScene, orbCamera);
+        }
+
+        function startAnimationLoop() {
+            if (animationFrameId) return;
+            function loop() {
+                animateAdvancedOrb();
+                animationFrameId = requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function stopAnimationLoop() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        function setOrbState(stateName) {
+            if (!orbConfig.states[stateName] || !window.gsap) return;
+            orbCurrentState = stateName;
+            const newState = orbConfig.states[stateName];
+            const targetPrimary = newState.colors;
+            const targetSecondary = newState.secondaryColors;
+            for (const key in orbPrimaryColors) {
+                gsap.to(orbPrimaryColors[key], { duration: 1.5, r: new THREE.Color(targetPrimary[key]).r, g: new THREE.Color(targetPrimary[key]).g, b: new THREE.Color(targetPrimary[key]).b });
+                gsap.to(orbSecondaryColors[key], { duration: 1.5, r: new THREE.Color(targetSecondary[key]).r, g: new THREE.Color(targetSecondary[key]).g, b: new THREE.Color(targetSecondary[key]).b });
+            }
+            if (orbParticles) {
+                gsap.killTweensOf(orbParticles.scale);
+                let scaleTarget = { x: 1, y: 1, z: 1 };
+                if (stateName === 'listening') scaleTarget = { x: 1.1, y: 1.1, z: 1.1 };
+                if (stateName === 'thinking') scaleTarget = { x: 0.9, y: 0.9, z: 0.9 };
+                if (stateName === 'talking') scaleTarget = { x: 1.05, y: 1.05, z: 1.05 };
+                gsap.to(orbParticles.scale, { duration: 1.5, ...scaleTarget, ease: 'power2.inOut' });
+            }
+        }
+        
+        // --- ADVANCED CAPTION SYSTEM ---
+        let currentCaptionInterval = null;
+
+        function startPreciseCaptions(text, wordBoundaries) {
+            stopCaptions();
+            const aiCaptionText = document.getElementById('ai-caption-text');
+            if (!aiCaptionText || !text || !wordBoundaries || wordBoundaries.length === 0) return;
+            
+            const wordsPerLine = 10;
+            const chunks = [];
+            for (let i = 0; i < wordBoundaries.length; i += wordsPerLine) {
+                chunks.push(wordBoundaries.slice(i, i + wordsPerLine));
+            }
+
+            let startTime = Date.now();
+            const totalDuration = wordBoundaries[wordBoundaries.length - 1].audio_offset + wordBoundaries[wordBoundaries.length - 1].duration;
+
+            currentCaptionInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime);
+                if (elapsed >= totalDuration) {
+                    stopCaptions();
+                    setOrbState('idle');
+                    document.getElementById('demo-prompt').innerHTML = '';
+                    if(aiCaptionText) aiCaptionText.innerHTML = ''; // Clear captions
+                    return;
+                }
+                updatePreciseCaptionDisplay(elapsed / 1000, chunks, wordBoundaries);
+            }, 16);
+        }
+
+        function updatePreciseCaptionDisplay(audioCurrentTime, chunks, wordBoundaries) {
+             const aiCaptionText = document.getElementById('ai-caption-text');
+            if(!aiCaptionText) return;
+
+            const compensatedTime = audioCurrentTime * 1000; // Work in ms
+            let currentWordIndex = -1;
+            for (let i = 0; i < wordBoundaries.length; i++) {
+                if (compensatedTime >= wordBoundaries[i].audio_offset) {
+                    currentWordIndex = i;
+                } else {
+                    break;
+                }
+            }
+            if (currentWordIndex === -1) return;
+
+            const wordsPerLine = 10;
+            const currentChunkIndex = Math.floor(currentWordIndex / wordsPerLine);
+            const currentWordInChunk = currentWordIndex % wordsPerLine;
+
+            const currentChunk = chunks[currentChunkIndex];
+            const nextChunk = chunks[currentChunkIndex + 1];
+            
+            let displayHtml = '';
+            if(currentChunk) {
+                const currentLineHtml = currentChunk.map((boundary, index) => {
+                    let className = 'caption-word';
+                    if (index < currentWordInChunk) className += ' completed';
+                    if (index === currentWordInChunk) className += ' current';
+                    return `<span class="${className}">${boundary.text}</span>`;
+                }).join(' ');
+                displayHtml += `<div class="caption-line current-line">${currentLineHtml}</div>`;
+            }
+
+            if (nextChunk) {
+                const nextLineHtml = nextChunk.map(boundary => `<span class="caption-word upcoming">${boundary.text}</span>`).join(' ');
+                displayHtml += `<div class="caption-line next-line">${nextLineHtml}</div>`;
+            }
+            
+            aiCaptionText.innerHTML = displayHtml;
+        }
+
+        function stopCaptions() {
+            if (currentCaptionInterval) {
+                clearInterval(currentCaptionInterval);
+                currentCaptionInterval = null;
+            }
+        }
+        
+        // --- DEMO LOGIC ---
+        function typeWriter(text, i, fnCallback) {
+            const promptEl = document.getElementById("demo-prompt");
+            if (!promptEl) return;
+            if (i < (text.length)) {
+                promptEl.innerHTML = `"${text.substring(0, i+1)}"<span class="typing-cursor"></span>`;
+                setTimeout(() => typeWriter(text, i + 1, fnCallback), 50);
+            } else {
+                promptEl.innerHTML = `"${text}"`;
+                if (typeof fnCallback == 'function') setTimeout(fnCallback, 700);
+            }
+        }
+
+        let demoHasRun = false;
+        function runDemo() {
+            if (!isOrbInitialized || demoHasRun) return;
+            demoHasRun = true;
+            
+            const sampleWordBoundaries = [
+                { text: 'The', audio_offset: 130, duration: 100 }, { text: 'Two', audio_offset: 230, duration: 140 }, { text: 'Pointers', audio_offset: 370, duration: 420 }, { text: 'pattern', audio_offset: 790, duration: 480 }, { text: 'is', audio_offset: 1270, duration: 150 }, { text: 'a', audio_offset: 1420, duration: 90 }, { text: 'technique', audio_offset: 1510, duration: 520 }, { text: 'that', audio_offset: 2030, duration: 180 }, { text: 'uses', audio_offset: 2210, duration: 330 }, { text: 'two', audio_offset: 2540, duration: 160 },
+                { text: 'separate', audio_offset: 2700, duration: 440 }, { text: 'pointers', audio_offset: 3140, duration: 470 }, { text: 'to', audio_offset: 3610, duration: 110 }, { text: 'traverse', audio_offset: 3720, duration: 440 }, { text: 'a', audio_offset: 4160, duration: 80 }, { text: 'data', audio_offset: 4240, duration: 310 }, { text: 'structure.', audio_offset: 4550, duration: 500 }
+            ];
+
+            setOrbState('listening');
+            typeWriter("Explain the Two Pointers pattern.", 0, () => {
+                setOrbState('thinking');
+                setTimeout(() => {
+                    document.getElementById('demo-prompt').innerHTML = '';
+                    setOrbState('talking');
+                    startPreciseCaptions('The Two Pointers pattern is a technique that uses two separate pointers to traverse a data structure.', sampleWordBoundaries);
+                }, 2000);
+            });
+        }
+
+        // --- ROBUST INITIALIZATION ---
+        function initialize() {
+            if (!initOrb()) {
+                console.error('Advanced orb initialization failed');
+                // Optional: show a fallback static image
+                const container = document.getElementById('ai-orb');
+                if(container) container.innerHTML = `<p style="color: #666;">Animation could not be loaded.</p>`;
+                return;
+            }
+            isOrbInitialized = true;
+            startAnimationLoop();
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const orbContainerEl = document.getElementById('ai-orb-container');
+                    if (entry.isIntersecting) {
+                        orbContainerEl.classList.remove('paused');
+                        startAnimationLoop();
+                        runDemo();
+                    } else {
+                        orbContainerEl.classList.add('paused');
+                        stopAnimationLoop();
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            const orbContainerEl = document.getElementById('ai-orb-container');
+            if (orbContainerEl) {
+                observer.observe(orbContainerEl);
+            }
+        }
+
+        // Wait for both the DOM and the libraries to be ready.
+        let readyCheckInterval = setInterval(() => {
+            if (document.readyState === "complete" && window.THREE && window.gsap) {
+                clearInterval(readyCheckInterval);
+                initialize();
+            }
+        }, 100);
+    });
+    </script>
+</body>
+</html>
+
