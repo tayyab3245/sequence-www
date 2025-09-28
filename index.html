@@ -74,17 +74,22 @@
         #ai-caption { 
             text-align: center; 
             font-weight: 600; 
-            min-height: 4.5rem; /* Taller for multi-line captions */
+            /* Reserve fixed height to keep single and double-line captions aligned */
+            height: 5rem; /* fixed area for captions (adjustable) */
             color: #c9d1d9;
             position: absolute;
-            bottom: 0;
+            bottom: 1.5rem; /* lift captions off the bottom edge */
             left: 50%;
             transform: translateX(-50%);
             z-index: 1;
             display: flex;
             flex-direction: column; /* Ensure lines stack vertically */
             align-items: center; /* Center lines horizontally */
-            justify-content: center;
+            justify-content: center; /* vertically center single-line inside fixed height */
+            gap: 0.25rem;
+            /* Use same font as demo prompt */
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
             width: 100%;
             max-width: 600px;
         }
@@ -116,7 +121,7 @@
         .caption-word {
             display: inline;
             transition: all 0.15s ease-in-out;
-            margin-right: 0.2rem;
+            margin-right: 0.3rem; /* Increased spacing to match example */
             border-radius: 3px;
             padding: 0 1px;
         }
@@ -139,11 +144,14 @@
             color: rgba(255, 255, 255, 0.6);
         }
         .caption-line {
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.5rem;
             line-height: 1.4;
-            font-size: 1.1rem;
-            text-align: center; /* Centered captions */
+            font-size: 1.5rem; /* text-2xl as in example */
+            text-align: center;
             width: 100%;
+            font-weight: 800; /* extrabold */
+            letter-spacing: -0.025em; /* tracking-tight */
+            color: #e6eefc;
         }
         .caption-line.current-line {
             opacity: 1;
@@ -151,6 +159,13 @@
         .caption-line.next-line {
             opacity: 0.6;
             font-size: 0.9em;
+        }
+
+        /* Keep smaller responsive tweaks but preserve primary sizing */
+        @media (max-width: 480px) {
+            .caption-line { font-size: 1.1rem; }
+            .caption-line.next-line { font-size: 0.95rem; }
+            .caption-word { margin-right: 0.2rem; padding: 0 1px; }
         }
         
         /* Scroll Animation Styles */
@@ -733,10 +748,23 @@
                     if (entry.isIntersecting) {
                         orbContainerEl.classList.remove('paused');
                         startAnimationLoop();
-                        runDemo();
+                        // Only run the demo if it hasn't already run since the last exit
+                        if (!demoHasRun) runDemo();
                     } else {
                         orbContainerEl.classList.add('paused');
                         stopAnimationLoop();
+                        // Stop and clear any running captions / prompt so the demo can replay
+                        try {
+                            stopCaptions();
+                            const promptEl = document.getElementById('demo-prompt');
+                            if (promptEl) promptEl.innerHTML = '';
+                            // reset state so runDemo can trigger again when scrolled back
+                            demoHasRun = false;
+                            setOrbState('idle');
+                        } catch (e) {
+                            // ignore any errors during cleanup
+                            console.warn('Cleanup after leaving viewport failed', e);
+                        }
                     }
                 });
             }, { threshold: 0.1 });
