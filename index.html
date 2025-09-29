@@ -669,19 +669,44 @@
             if (audioFile && sequenceIndex !== undefined && preloadedAudio[sequenceIndex]) {
                 currentAudio = preloadedAudio[sequenceIndex].cloneNode();
                 currentAudio.currentTime = 0;
+                console.log(`Using preloaded audio for sequence ${sequenceIndex + 1}`);
                 
                 // Start caption timing when audio actually starts playing
                 currentAudio.addEventListener('playing', () => {
+                    console.log(`Audio ${sequenceIndex + 1} started playing`);
                     startCaptionTiming();
                 });
                 
                 currentAudio.play().catch(e => {
-                    console.log('Audio play failed:', e);
+                    console.log('Preloaded audio play failed:', e);
                     // Start captions anyway if audio fails
                     startCaptionTiming();
                 });
+            } else if (audioFile) {
+                // Fallback to loading audio on demand
+                console.log(`Fallback: loading audio on demand for ${audioFile}`);
+                currentAudio = new Audio('./' + audioFile);
+                currentAudio.preload = 'auto';
+                
+                currentAudio.addEventListener('canplaythrough', () => {
+                    currentAudio.play().catch(e => {
+                        console.log('Audio play failed:', e);
+                        startCaptionTiming();
+                    });
+                });
+                
+                currentAudio.addEventListener('playing', () => {
+                    startCaptionTiming();
+                });
+                
+                currentAudio.addEventListener('error', (e) => {
+                    console.log('Audio loading failed:', e);
+                    startCaptionTiming();
+                });
+                
+                currentAudio.load();
             } else {
-                // No audio or not preloaded, start captions immediately
+                // No audio, start captions immediately
                 startCaptionTiming();
             }
         }
@@ -783,6 +808,7 @@
             
             let loadedCount = 0;
             const totalFiles = audioFiles.length;
+            console.log(`Starting to preload ${totalFiles} audio files...`);
             
             audioFiles.forEach((file, index) => {
                 const audio = new Audio('./' + file);
@@ -790,30 +816,50 @@
                 
                 const onLoad = () => {
                     loadedCount++;
+                    console.log(`Audio file ${index + 1}/${totalFiles} loaded: ${file}`);
                     if (loadedCount === totalFiles) {
                         audioPreloaded = true;
-                        console.log('All audio files preloaded successfully');
+                        console.log('All audio files preloaded successfully!');
                     }
                     audio.removeEventListener('canplaythrough', onLoad);
                     audio.removeEventListener('error', onError);
+                    audio.removeEventListener('loadeddata', onLoad);
                 };
                 
-                const onError = () => {
+                const onError = (e) => {
                     loadedCount++; // Count errors as "loaded" to prevent hanging
-                    console.warn(`Failed to preload ${file}`);
+                    console.warn(`Failed to preload ${file}:`, e);
                     if (loadedCount === totalFiles) {
                         audioPreloaded = true;
+                        console.log('Audio preloading complete (some files may have failed)');
                     }
                     audio.removeEventListener('canplaythrough', onLoad);
                     audio.removeEventListener('error', onError);
+                    audio.removeEventListener('loadeddata', onLoad);
                 };
                 
+                // Listen to multiple events to ensure we catch when audio is ready
                 audio.addEventListener('canplaythrough', onLoad);
+                audio.addEventListener('loadeddata', onLoad); // Fallback event
                 audio.addEventListener('error', onError);
-                audio.load();
                 
-                preloadedAudio[index] = audio;
+                // Try to load the audio
+                try {
+                    audio.load();
+                    preloadedAudio[index] = audio;
+                } catch (e) {
+                    console.error(`Error loading ${file}:`, e);
+                    onError(e);
+                }
             });
+            
+            // Fallback timeout to prevent indefinite waiting
+            setTimeout(() => {
+                if (!audioPreloaded) {
+                    console.warn('Audio preload timeout reached, forcing completion');
+                    audioPreloaded = true;
+                }
+            }, 8000);
         }
         
         function runDemo() {
@@ -822,15 +868,33 @@
             // Wait for audio to be preloaded before starting demo
             if (!audioPreloaded) {
                 console.log('Waiting for audio to preload...');
+                // Show loading indicator
+                const promptEl = document.getElementById('demo-prompt');
+                if (promptEl) promptEl.innerHTML = 'Loading audio...';
+                
                 const checkPreload = setInterval(() => {
                     if (audioPreloaded) {
                         clearInterval(checkPreload);
                         console.log('Audio preloaded, starting demo');
+                        if (promptEl) promptEl.innerHTML = ''; // Clear loading message
                         demoStep = 0;
                         demoHasRun = true;
                         startDemoSequence();
                     }
                 }, 100);
+                
+                // Timeout fallback - start demo anyway after 10 seconds
+                setTimeout(() => {
+                    if (!demoHasRun) {
+                        console.warn('Audio preload timeout, starting demo anyway');
+                        clearInterval(checkPreload);
+                        if (promptEl) promptEl.innerHTML = '';
+                        audioPreloaded = true; // Force it to true
+                        demoStep = 0;
+                        demoHasRun = true;
+                        startDemoSequence();
+                    }
+                }, 10000);
                 return;
             }
             
